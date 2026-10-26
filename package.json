@@ -1,0 +1,24 @@
+{
+  "name": "nemokon",
+  "private": true,
+  "version": "0.0.0",
+  "description": "NemoKon — personal AI assistant scaffold: Mastra + Nemotron on Nebius Token Factory + OpenShell",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "pnpm --filter @nemokon/demo dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "devDependencies": {
+    "tsdown": "^0.23.1",
+    "turbo": "^2.11.9",
+    "typescript": "^5.7.0"
+  }
+}
