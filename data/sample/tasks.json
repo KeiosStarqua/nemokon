@@ -1,0 +1,5 @@
+[
+  { "title": "Book a dentist appointment", "detail": "Any weekday morning next month.", "status": "open" },
+  { "title": "Draft the quarterly newsletter", "detail": "Three short sections.", "status": "in_progress" },
+  { "title": "Return the library books", "detail": null, "status": "done" }
+]
