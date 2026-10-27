@@ -1,0 +1,51 @@
+# Fly.io config for the NemoKon demo. See docs/deploy/fly.md and docs/plans/fly-deploy.md.
+#
+# NO SECRETS HERE. NEBIUS_API_KEY, DEMO_TOKEN and TAVILY_API_KEY are Fly secrets
+# (`fly secrets set` / `fly secrets import`), never `[env]` entries.
+#
+# Exactly ONE machine and ONE volume: SQLite/libSQL is single-writer, a volume attaches to one
+# machine, and tasks/notes/schedules live in RAM. Do not `fly scale count 2`.
+
+app = "nemokon-demo"
+primary_region = "sin"
+kill_signal = "SIGTERM"
+kill_timeout = "15s"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  HOST = "0.0.0.0"
+  PORT = "8787"
+  NEMOKON_CONFIG = "config.fly.yaml"
+  NEBIUS_MODEL = "nvidia/nemotron-3-super-120b-a12b" # confirm against the Token Factory Models page
+  AGENT_TIMEOUT_MS = "55000" # keep a turn under the Fly proxy's ~1 minute idle window
+
+[mounts]
+  source = "nemokon_data"
+  destination = "/data"
+  initial_size = "1gb"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = "off" # in-memory tasks/notes/schedules: never idle-stop
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 4 # a turn can take tens of seconds
+    hard_limit = 8
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "25s" # Mastra + libSQL start-up
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
