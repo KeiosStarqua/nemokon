@@ -18,12 +18,21 @@ import {
 import { createApp } from "./app";
 import { loadConfig, loadInstructions, modelForTask, resolvePath } from "./config";
 import { seedSampleData } from "./sample-data";
+import { resolveServerOptions } from "./server-options";
 
 // Optional local .env (Node >= 20.12). Real environment variables win.
 try {
   process.loadEnvFile?.(resolvePath("apps/demo/.env"));
 } catch {
   // no .env file: fine
+}
+
+let serverOptions;
+try {
+  serverOptions = resolveServerOptions(process.env);
+} catch (error) {
+  console.error(error instanceof Error ? error.message : error);
+  process.exit(1);
 }
 
 const config = loadConfig(process.env.NEMOKON_CONFIG ?? "config.example.yaml");
@@ -73,13 +82,22 @@ const limits = loadExecutionLimits(process.env, {
 });
 
 const app = createApp({
-  token: process.env.DEMO_TOKEN?.trim() || undefined,
+  token: serverOptions.token,
   runTurn: (request) => runAgentTurn(agent, request, { modelId: provider.modelId, limits }),
   onError: (error) => console.error("turn failed:", error instanceof Error ? error.message : error),
 });
 
-// Loopback only: this demo is not meant to be exposed to a network.
-const port = Number(process.env.PORT ?? 8787);
-serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, (info) => {
-  console.log(`nemokon demo on http://127.0.0.1:${info.port}  (POST /turn, GET /health)`);
+// Binds HOST (default 127.0.0.1). A non-loopback HOST requires DEMO_TOKEN (checked above) and TLS in front.
+const { hostname, port } = serverOptions;
+const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
+  console.log(`nemokon demo on http://${hostname}:${info.port}  (POST /turn, GET /health)`);
 });
+
+// Graceful stop: let in-flight requests finish, but never hang longer than 10 s.
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  process.once(signal, () => {
+    console.log(`${signal}: shutting down`);
+    setTimeout(() => process.exit(1), 10_000).unref();
+    server.close(() => process.exit(0));
+  });
+}
