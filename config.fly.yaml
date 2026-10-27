@@ -1,0 +1,35 @@
+# NemoKon config for the Fly.io deploy (selected with NEMOKON_CONFIG=config.fly.yaml; see docs/plans/fly-deploy.md).
+# Secrets never go here: NEBIUS_API_KEY, DEMO_TOKEN and TAVILY_API_KEY come from Fly secrets.
+
+assistant:
+  name: Sample Assistant        # all names and data in this repo are fake
+  tone: friendly and concise    # free text, pasted into the prompt
+  language: en                  # "en", "vi", or any language name
+  timezone: UTC                 # IANA name, e.g. Asia/Ho_Chi_Minh
+
+# Prompt template with {{name}} {{tone}} {{language}} {{timezone}} placeholders.
+prompt_file: prompts/personal-assistant.example.md
+
+# Model per task. null means "use NEBIUS_MODEL". Ids come from the Token Factory Models page.
+models:
+  chat: null                    # null: NEBIUS_MODEL from fly.toml applies
+  planning: null                # e.g. a larger Nemotron for multi-step plans
+  summarize: null               # e.g. a smaller, cheaper model
+
+limits:                         # per turn; AGENT_MAX_STEPS / AGENT_MAX_TOKENS / AGENT_TIMEOUT_MS override
+  max_tool_rounds: 8
+  max_tokens: 1024
+  timeout_ms: 60000
+
+memory:
+  libsql_url: "file:/data/mastra.db"   # absolute: the Fly volume is mounted at /data
+  last_messages: 20
+
+tools:
+  web_search: auto              # "auto" = on when TAVILY_API_KEY is set, "off" = never
+
+# Seed the in-memory task and note stores for conversation "demo" from this folder.
+sample_data:
+  enabled: true                 # fake data, lives in RAM and is re-applied at each start
+  dir: data/sample
+  conversation_id: demo
