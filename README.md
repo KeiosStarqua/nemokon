@@ -53,7 +53,12 @@ cp apps/demo/.env.example apps/demo/.env
 | `NEBIUS_BASE_URL` | `https://api.tokenfactory.nebius.com/v1/` | OpenAI-compatible endpoint. |
 | `TAVILY_API_KEY` | unset | Turns on the `webSearch` tool. |
 | `DEMO_TOKEN` | unset | If set, `POST /turn` needs `Authorization: Bearer <value>`. |
-| `PORT` | `8787` | The demo binds to `127.0.0.1` only. |
+| `HOST` | `127.0.0.1` | Bind address. `0.0.0.0` (or any non-loopback host) requires `DEMO_TOKEN`; the server refuses to start without it. |
+| `PORT` | `8787` | The demo binds to `HOST` on this port. |
+| `NEMOKON_CONFIG` | `config.example.yaml` | Path to the YAML config (assistant, models, limits, memory). The Fly image uses `config.fly.yaml`. |
+| `AGENT_MAX_STEPS` | `8` | Per-turn cap on tool rounds (overrides `limits.max_tool_rounds`). |
+| `AGENT_MAX_TOKENS` | `1024` | Per-turn output token cap (overrides `limits.max_tokens`). |
+| `AGENT_TIMEOUT_MS` | `60000` (`limits.timeout_ms`) | Per-turn time limit in ms (overrides `limits.timeout_ms`). |
 
 The default model id comes from Nebius' Nemotron 3 Super announcement; check it still exists in your account.
 
@@ -72,7 +77,34 @@ Conversation `demo` is pre-filled with fake tasks and notes from `data/sample/` 
 Use another `conversationId` for an empty slate. Thread memory is stored in `./mastra.db` (git-ignored) in the working directory.
 Task, schedule and note stores are in memory and reset on restart.
 
-The demo has no user accounts. It listens on loopback only; if you expose it, set `DEMO_TOKEN` and put it behind TLS.
+The demo has no user accounts. It listens on loopback by default. Hosting it publicly needs `HOST=0.0.0.0`, a `DEMO_TOKEN`, and TLS in front (Fly provides TLS).
+
+## Deploy to Fly.io
+
+The demo can run on [Fly.io](https://fly.io) as one machine with a small volume for thread memory (`mastra.db`).
+Step-by-step runbook: [docs/deploy/fly.md](docs/deploy/fly.md). Design and decisions: [docs/plans/fly-deploy.md](docs/plans/fly-deploy.md).
+
+The essentials (secrets and smoke check are in the runbook):
+
+```bash
+fly apps create nemokon-demo
+fly volumes create nemokon_data --region sin --size 1
+fly deploy --remote-only
+```
+
+Set `NEBIUS_API_KEY` and `DEMO_TOKEN` as Fly secrets before the first deploy; never put them in `fly.toml` or the repo.
+
+### Hosted URL
+
+Your deployment is at `https://<app>.fly.dev`. Call it with the bearer token:
+
+```bash
+curl -s https://<app>.fly.dev/turn \
+  -H "Authorization: Bearer $DEMO_TOKEN" -H 'content-type: application/json' \
+  -d '{"conversationId":"demo","text":"What tasks do I have open?"}'
+```
+
+`<app>.fly.dev` is a placeholder; this repo does not publish a real hostname or token.
 
 ## Personal AI track: how the pieces map
 
@@ -84,6 +116,9 @@ The demo has no user accounts. It listens on loopback only; if you expose it, se
 
 ## Status and limits
 
+- On Fly, tasks, schedules and remembered notes are still in memory and reset on every restart or deploy. Only thread memory (`mastra.db`) persists, on the volume.
+- Fly runs exactly one machine and one volume (libSQL is single-writer). There is no high availability; a volume or host failure means downtime until restored from a snapshot.
+- `DEMO_TOKEN` is one shared secret: anyone holding it can read and write every conversation.
 - The OpenShell client is a stub: it validates input and output but does not call OpenShell until you supply a transport.
 - `scheduleCreate` records a one-shot schedule; nothing fires it. Call `ScheduleStore.listDue()` from your own timer.
 - `remember`/`forget` are a stub over an in-memory store.

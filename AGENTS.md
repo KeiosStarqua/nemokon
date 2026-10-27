@@ -7,6 +7,7 @@ NemoKon: pnpm + turbo TypeScript monorepo (Node >= 20). Mastra agent, Nebius Tok
 - `pnpm install`, `pnpm typecheck`, `pnpm test`, `pnpm build` (run from the repo root; all must pass before a commit).
 - Demo: `pnpm --filter @nemokon/demo start`. Tests need no API key or network.
 - Wrap long commands in `timeout`; use non-watch modes in scripts.
+- Image smoke (needs Docker): `timeout 600 docker build -t nemokon-demo:local .`, then run it with a dummy `NEBIUS_API_KEY` and `DEMO_TOKEN` and check `/health` and a `401` on `/turn` (steps in `docs/plans/fly-deploy.md`, U2).
 
 ## Layout
 
@@ -19,4 +20,6 @@ NemoKon: pnpm + turbo TypeScript monorepo (Node >= 20). Mastra agent, Nebius Tok
 - Public Apache-2.0 repo. No secrets, no `.env`, no real names, partners, hostnames or customer data. Samples are fake.
 - Config is read from the environment or a YAML file passed at runtime; keep secrets out of YAML.
 - Do not claim integrations that are stubs (OpenShell transport, memory notes, scheduler runner).
+- Never commit Fly secrets (`NEBIUS_API_KEY`, `DEMO_TOKEN`, `TAVILY_API_KEY`) or put them in `fly.toml`; use `fly secrets`. `fly.toml` holds plain env only.
+- The deploy image runs TypeScript source through `tsx`; keep `tsx` in `apps/demo` `dependencies`, not `devDependencies`.
 - Keep packages thin: add a port plus a small adapter, not a framework.
